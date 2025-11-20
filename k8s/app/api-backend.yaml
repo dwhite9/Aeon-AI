@@ -15,6 +15,9 @@ data:
   POSTGRES_DB: "aiplatform"
   POSTGRES_USER: "aiuser"
   QDRANT_HOST: "http://qdrant.vector-db:6333"
+  SEARXNG_ENDPOINT: "http://searxng.search-engine:8080"
+  ENABLE_RAG: "true"
+  ENABLE_AGENT: "true"
 ---
 apiVersion: v1
 kind: Secret
