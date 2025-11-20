@@ -71,13 +71,21 @@ sudo apt-get install -y \
 # Add Podman repository (for newer versions)
 echo_step "Step 3/5: Adding Podman repository..."
 
-# For Ubuntu 20.04 and later, use the official PPA
-if [[ "$VERSION_ID" == "20.04" || "$VERSION_ID" == "22.04" || "$VERSION_ID" == "24.04" ]]; then
-    echo_info "Adding Podman PPA for Ubuntu $VERSION_ID..."
-    sudo add-apt-repository -y ppa:alvistack/podman-4.9
+# For Ubuntu 24.04+, use default repository (includes Podman 4.9+)
+if [[ "$VERSION_ID" == "24.04" ]]; then
+    echo_info "Ubuntu 24.04 detected. Using default repository (Podman 4.9+)..."
+    sudo apt-get update
+# For older Ubuntu versions, use Kubic repository
+elif [[ "$VERSION_ID" == "20.04" || "$VERSION_ID" == "22.04" ]]; then
+    echo_info "Adding Kubic Podman repository for Ubuntu $VERSION_ID..."
+    echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" | \
+        sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+    curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key | \
+        gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kubic-libcontainers.gpg > /dev/null
     sudo apt-get update
 else
     echo_warn "Ubuntu version $VERSION_ID detected. Using default repository."
+    sudo apt-get update
 fi
 
 # Install Podman
@@ -90,14 +98,32 @@ echo_info "Podman installed successfully: version $PODMAN_VERSION"
 
 # Install podman-compose
 echo_step "Step 5/5: Installing podman-compose..."
-if command -v pip3 &> /dev/null; then
-    sudo pip3 install podman-compose
-elif command -v pip &> /dev/null; then
-    sudo pip install podman-compose
+
+# Install using UV in a virtual environment
+echo_info "Installing podman-compose via UV in a venv..."
+
+# Ensure UV is installed
+if ! command -v uv &> /dev/null; then
+    echo_info "UV not found. Installing UV..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+# Check if we're already in a venv
+if [ -n "$VIRTUAL_ENV" ]; then
+    echo_info "Using existing virtual environment: $VIRTUAL_ENV"
+    uv pip install podman-compose
 else
-    echo_warn "pip not found. Installing pip..."
-    sudo apt-get install -y python3-pip
-    sudo pip3 install podman-compose
+    # Create venv and install podman-compose
+    VENV_PATH="/opt/aeon/venv/podman-compose"
+    echo_info "Creating venv at $VENV_PATH..."
+    sudo mkdir -p /opt/aeon/venv
+    sudo uv venv "$VENV_PATH"
+    sudo uv pip install --python "$VENV_PATH" podman-compose
+
+    # Create symlink to make podman-compose available system-wide
+    echo_info "Creating symlink for podman-compose..."
+    sudo ln -sf "$VENV_PATH/bin/podman-compose" /usr/local/bin/podman-compose
 fi
 
 # Verify podman-compose installation
@@ -118,10 +144,9 @@ if command -v nvidia-smi &> /dev/null; then
     if ! command -v nvidia-ctk &> /dev/null; then
         echo_step "Installing NVIDIA Container Toolkit..."
 
-        # Add NVIDIA repository
-        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+        # Add NVIDIA repository using the new generic deb repository
         curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-        curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+        curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
             sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
             sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 
