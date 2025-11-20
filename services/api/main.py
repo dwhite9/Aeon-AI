@@ -30,6 +30,9 @@ from agent import CipherAgent
 # Import Code Execution components
 from code_exec import CodeExecutor
 
+# Import Analytics components
+from analytics import AnalyticsTracker, PerformanceOptimizer, MetricsAggregator
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -48,12 +51,14 @@ SESSION_TTL = 3600  # 1 hour
 ENABLE_RAG = os.getenv("ENABLE_RAG", "true").lower() == "true"
 ENABLE_AGENT = os.getenv("ENABLE_AGENT", "true").lower() == "true"
 ENABLE_CODE_EXEC = os.getenv("ENABLE_CODE_EXEC", "true").lower() == "true"
+ENABLE_ANALYTICS = os.getenv("ENABLE_ANALYTICS", "true").lower() == "true"
+POSTGRES_URL = None  # Will be constructed from env vars
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Aeon AI Platform API",
-    description="API for Cipher AI agent with RAG capabilities, web search, code execution, and intelligent routing",
-    version="0.4.0"
+    description="API for Cipher AI agent with RAG capabilities, web search, code execution, analytics, and intelligent routing",
+    version="0.5.0"
 )
 
 # CORS middleware
@@ -71,6 +76,9 @@ rag_pipeline: Optional[RAGPipeline] = None
 rag_analytics: Optional[RAGAnalytics] = None
 cipher_agent: Optional[CipherAgent] = None
 code_executor: Optional[CodeExecutor] = None
+analytics_tracker: Optional[AnalyticsTracker] = None
+performance_optimizer: Optional[PerformanceOptimizer] = None
+metrics_aggregator: Optional[MetricsAggregator] = None
 
 
 # Pydantic models
@@ -154,8 +162,8 @@ class AgentResponse(BaseModel):
 # Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize Redis, RAG pipeline, Code Executor, and Cipher agent on startup"""
-    global redis_client, rag_pipeline, rag_analytics, cipher_agent, code_executor
+    """Initialize Redis, RAG pipeline, Code Executor, Cipher agent, and Analytics on startup"""
+    global redis_client, rag_pipeline, rag_analytics, cipher_agent, code_executor, analytics_tracker, performance_optimizer, metrics_aggregator
 
     try:
         # Initialize Redis
@@ -213,6 +221,26 @@ async def startup_event():
             logger.info("Code Executor initialized successfully")
         else:
             logger.info("Code Executor disabled (set ENABLE_CODE_EXEC=true to enable)")
+
+        # Initialize Analytics if enabled
+        if ENABLE_ANALYTICS:
+            logger.info("Initializing Analytics...")
+
+            postgres_url = (
+                f"postgresql://{os.getenv('POSTGRES_USER', 'aiuser')}:"
+                f"{os.getenv('POSTGRES_PASSWORD', 'changeme')}@"
+                f"{os.getenv('POSTGRES_HOST', 'postgres-postgresql')}:"
+                f"{os.getenv('POSTGRES_PORT', '5432')}/"
+                f"{os.getenv('POSTGRES_DB', 'aiplatform')}"
+            )
+
+            analytics_tracker = AnalyticsTracker(postgres_url=postgres_url)
+            performance_optimizer = PerformanceOptimizer()
+            metrics_aggregator = MetricsAggregator()
+
+            logger.info("Analytics initialized successfully")
+        else:
+            logger.info("Analytics disabled (set ENABLE_ANALYTICS=true to enable)")
 
         # Initialize Cipher agent if enabled
         if ENABLE_AGENT:
@@ -302,14 +330,15 @@ async def root():
     """Root endpoint - API information"""
     return {
         "service": "Aeon AI Platform",
-        "version": "0.4.0",
+        "version": "0.5.0",
         "status": "operational",
         "agent": "Cipher",
         "features": {
             "rag": ENABLE_RAG,
             "chat": True,
             "websocket": True,
-            "code_execution": ENABLE_CODE_EXEC
+            "code_execution": ENABLE_CODE_EXEC,
+            "analytics": ENABLE_ANALYTICS
         }
     }
 
@@ -839,6 +868,89 @@ async def websocket_chat(websocket: WebSocket, session_id: str):
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         await websocket.close()
+
+
+# ===== Analytics Endpoints =====
+
+@app.get("/api/analytics/overview")
+async def analytics_overview():
+    """Get analytics overview"""
+    if not ENABLE_ANALYTICS or not analytics_tracker:
+        raise HTTPException(status_code=503, detail="Analytics not enabled")
+
+    try:
+        trends = analytics_tracker.get_query_trends(hours=24)
+        tool_usage = analytics_tracker.get_tool_usage_stats(hours=24)
+
+        return {
+            "trends": trends,
+            "tool_usage": [
+                {
+                    "tool": t.tool_name,
+                    "calls": t.total_calls,
+                    "success_rate": t.successful_calls / t.total_calls if t.total_calls > 0 else 0,
+                    "avg_time": t.avg_execution_time
+                }
+                for t in tool_usage
+            ],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Analytics overview error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analytics/performance")
+async def performance_metrics():
+    """Get performance metrics"""
+    if not ENABLE_ANALYTICS or not analytics_tracker:
+        raise HTTPException(status_code=503, detail="Analytics not enabled")
+
+    try:
+        percentiles = analytics_tracker.get_performance_percentiles(hours=24)
+        slow_queries = analytics_tracker.get_slow_queries(hours=24, limit=5)
+
+        return {
+            "percentiles": percentiles,
+            "slow_queries": [
+                {
+                    "query": q.query_text[:100],
+                    "tool": q.tool_used,
+                    "time": q.execution_time
+                }
+                for q in slow_queries
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Performance metrics error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analytics/optimization")
+async def optimization_recommendations():
+    """Get optimization recommendations"""
+    if not ENABLE_ANALYTICS or not analytics_tracker or not performance_optimizer:
+        raise HTTPException(status_code=503, detail="Analytics not enabled")
+
+    try:
+        trends = analytics_tracker.get_query_trends(hours=24)
+        tool_usage = analytics_tracker.get_tool_usage_stats(hours=24)
+        percentiles = analytics_tracker.get_performance_percentiles(hours=24)
+        errors = analytics_tracker.get_error_summary(hours=24)
+
+        recommendations = performance_optimizer.analyze_and_recommend(
+            query_trends=trends,
+            tool_usage=tool_usage,
+            performance_percentiles=percentiles,
+            error_summary=errors
+        )
+
+        plan = performance_optimizer.generate_optimization_plan(recommendations)
+
+        return plan
+    except Exception as e:
+        logger.error(f"Optimization recommendations error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
