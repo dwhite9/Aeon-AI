@@ -1,0 +1,247 @@
+---
+# Nightly Cache Warming Job
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cache-warming
+  namespace: default
+  labels:
+    app: aeon
+    component: optimization
+spec:
+  schedule: "0 2 * * *"  # 2 AM daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: cache-warming
+            component: optimization
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: api-backend-sa
+          containers:
+          - name: cache-warmer
+            image: localhost:5000/aeon-api:latest
+            command:
+            - python3
+            - -c
+            - |
+              import asyncio
+              import sys
+              sys.path.append('/app')
+              from analytics.jobs import cache_warming_job
+              asyncio.run(cache_warming_job())
+            env:
+            - name: REDIS_HOST
+              value: "redis-master"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: QDRANT_HOST
+              value: "http://qdrant.vector-db:6333"
+            - name: POSTGRES_HOST
+              value: "postgres-postgresql"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: "aiplatform"
+            - name: POSTGRES_USER
+              value: "aiuser"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-backend-secrets
+                  key: POSTGRES_PASSWORD
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+
+---
+# Analytics Aggregation Job
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: analytics-aggregation
+  namespace: default
+  labels:
+    app: aeon
+    component: optimization
+spec:
+  schedule: "*/30 * * * *"  # Every 30 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: analytics-aggregation
+            component: optimization
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: api-backend-sa
+          containers:
+          - name: aggregator
+            image: localhost:5000/aeon-api:latest
+            command:
+            - python3
+            - -c
+            - |
+              import asyncio
+              import sys
+              sys.path.append('/app')
+              from analytics.jobs import analytics_aggregation_job
+              asyncio.run(analytics_aggregation_job())
+            env:
+            - name: REDIS_HOST
+              value: "redis-master"
+            - name: POSTGRES_HOST
+              value: "postgres-postgresql"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: "aiplatform"
+            - name: POSTGRES_USER
+              value: "aiuser"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-backend-secrets
+                  key: POSTGRES_PASSWORD
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+
+---
+# Data Cleanup Job
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: data-cleanup
+  namespace: default
+  labels:
+    app: aeon
+    component: optimization
+spec:
+  schedule: "0 3 * * 0"  # 3 AM every Sunday
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: data-cleanup
+            component: optimization
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: api-backend-sa
+          containers:
+          - name: cleanup
+            image: localhost:5000/aeon-api:latest
+            command:
+            - python3
+            - -c
+            - |
+              import asyncio
+              import sys
+              sys.path.append('/app')
+              from analytics.jobs import data_cleanup_job
+              asyncio.run(data_cleanup_job())
+            env:
+            - name: POSTGRES_HOST
+              value: "postgres-postgresql"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: "aiplatform"
+            - name: POSTGRES_USER
+              value: "aiuser"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-backend-secrets
+                  key: POSTGRES_PASSWORD
+            - name: RETENTION_DAYS
+              value: "90"
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+
+---
+# Optimization Report Generation Job
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: optimization-report
+  namespace: default
+  labels:
+    app: aeon
+    component: optimization
+spec:
+  schedule: "0 4 * * *"  # 4 AM daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: optimization-report
+            component: optimization
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: api-backend-sa
+          containers:
+          - name: report-generator
+            image: localhost:5000/aeon-api:latest
+            command:
+            - python3
+            - -c
+            - |
+              import asyncio
+              import sys
+              sys.path.append('/app')
+              from analytics.jobs import optimization_report_job
+              asyncio.run(optimization_report_job())
+            env:
+            - name: REDIS_HOST
+              value: "redis-master"
+            - name: POSTGRES_HOST
+              value: "postgres-postgresql"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: "aiplatform"
+            - name: POSTGRES_USER
+              value: "aiuser"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: api-backend-secrets
+                  key: POSTGRES_PASSWORD
+            resources:
+              requests:
+                memory: "512Mi"
+                cpu: "200m"
+              limits:
+                memory: "1Gi"
+                cpu: "500m"

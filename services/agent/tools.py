@@ -1,7 +1,7 @@
 """
 Agent Tools - Tools for Cipher agent to use
 
-Provides RAG retrieval, web search, and direct chat capabilities.
+Provides RAG retrieval, web search, direct chat, and code execution capabilities.
 """
 
 import httpx
@@ -9,6 +9,12 @@ import logging
 from typing import List, Dict, Any, Optional
 from langchain.tools import BaseTool
 from pydantic import BaseModel, Field
+import sys
+from pathlib import Path
+
+# Import code execution module
+sys.path.append(str(Path(__file__).parent.parent))
+from code_exec import CodeExecutor, ExecutionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +219,78 @@ class DirectChatTool(BaseTool):
             return f"Error in direct chat: {str(e)}"
 
 
+class CodeExecutionToolInput(BaseModel):
+    """Input schema for code execution tool"""
+    code: str = Field(description="Python code to execute")
+    description: str = Field(default="Code execution", description="Description of what the code does")
+
+
+class CodeExecutionTool(BaseTool):
+    """
+    Tool for executing Python code in a sandboxed environment
+
+    Runs code in isolated Kubernetes Jobs with resource limits and timeout.
+    """
+    name: str = "code_execution"
+    description: str = (
+        "Executes Python code in a secure, sandboxed environment. "
+        "Use this when the user asks you to run code, perform calculations, "
+        "or test Python implementations. The code runs with resource limits "
+        "and a 30-second timeout. File system, network, and dangerous operations "
+        "are blocked for security. Safe modules like math, random, datetime, "
+        "and json are available."
+    )
+    args_schema: type[BaseModel] = CodeExecutionToolInput
+
+    code_executor: Optional[CodeExecutor] = Field(default=None, exclude=True)
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    def _run(self, code: str, description: str = "Code execution") -> str:
+        """Execute code synchronously"""
+        raise NotImplementedError("Use async version")
+
+    async def _arun(self, code: str, description: str = "Code execution") -> str:
+        """Execute Python code in sandboxed environment"""
+        try:
+            if not self.code_executor:
+                return "Code execution is not available (executor not initialized)."
+
+            logger.info(f"Executing code: {description}")
+
+            # Execute code
+            result = await self.code_executor.execute(code, description)
+
+            # Format result based on status
+            if result.status == ExecutionStatus.VALIDATION_FAILED:
+                return f"❌ Code validation failed:\n{result.error}\n\nPlease fix the issues and try again."
+
+            elif result.status == ExecutionStatus.COMPLETED:
+                output = result.output.strip()
+                if output:
+                    return f"✅ Code executed successfully ({result.execution_time:.2f}s):\n\n{output}"
+                else:
+                    return f"✅ Code executed successfully ({result.execution_time:.2f}s) with no output."
+
+            elif result.status == ExecutionStatus.TIMEOUT:
+                return f"⏱️ Execution timeout after {result.execution_time:.1f}s.\nThe code took too long to run. Try optimizing or simplifying it."
+
+            elif result.status == ExecutionStatus.FAILED:
+                error_msg = result.error if result.error else result.output
+                return f"❌ Execution failed ({result.execution_time:.2f}s):\n\n{error_msg}"
+
+            else:
+                return f"❓ Unknown execution status: {result.status}"
+
+        except Exception as e:
+            logger.error(f"Code execution error: {e}", exc_info=True)
+            return f"Error executing code: {str(e)}"
+
+
 def create_agent_tools(
     rag_pipeline: Any = None,
+    code_executor: Optional[CodeExecutor] = None,
     vllm_endpoint: str = "http://192.168.1.100:8000/v1",
     searxng_endpoint: str = "http://searxng.search-engine:8080",
     model: str = "mistralai/Mistral-7B-Instruct-v0.2"
@@ -224,6 +300,7 @@ def create_agent_tools(
 
     Args:
         rag_pipeline: RAG pipeline instance for document retrieval
+        code_executor: Code executor instance for running Python code
         vllm_endpoint: vLLM server endpoint
         searxng_endpoint: SearXNG server endpoint
         model: Model name for vLLM
@@ -241,6 +318,11 @@ def create_agent_tools(
     # Web search tool
     web_tool = WebSearchTool(searxng_endpoint=searxng_endpoint)
     tools.append(web_tool)
+
+    # Code execution tool (only if executor is available)
+    if code_executor:
+        code_tool = CodeExecutionTool(code_executor=code_executor)
+        tools.append(code_tool)
 
     # Direct chat tool
     chat_tool = DirectChatTool(vllm_endpoint=vllm_endpoint, model=model)

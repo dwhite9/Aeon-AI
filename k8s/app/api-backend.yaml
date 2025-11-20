@@ -18,6 +18,8 @@ data:
   SEARXNG_ENDPOINT: "http://searxng.search-engine:8080"
   ENABLE_RAG: "true"
   ENABLE_AGENT: "true"
+  ENABLE_CODE_EXEC: "true"
+  ENABLE_ANALYTICS: "true"
 ---
 apiVersion: v1
 kind: Secret
@@ -47,6 +49,7 @@ spec:
         app: api-backend
         component: backend
     spec:
+      serviceAccountName: api-backend-sa
       containers:
       - name: api
         image: localhost:5000/aeon-api:latest

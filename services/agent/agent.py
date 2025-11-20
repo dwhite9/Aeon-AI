@@ -2,6 +2,7 @@
 Cipher Agent - LangGraph-based Multi-Tool Agent
 
 Intelligent agent that routes queries to appropriate tools:
+- Code execution for running Python code
 - RAG retrieval for knowledge base queries
 - Web search for current information
 - Direct chat for general conversation
@@ -16,7 +17,7 @@ import httpx
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 
-from .tools import create_agent_tools, RAGRetrievalTool, WebSearchTool, DirectChatTool
+from .tools import create_agent_tools, RAGRetrievalTool, WebSearchTool, DirectChatTool, CodeExecutionTool
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +51,13 @@ class CipherAgent:
     """
     Cipher - Multi-tool AI Agent using LangGraph
 
-    Routes queries intelligently between RAG retrieval, web search, and direct chat.
+    Routes queries intelligently between code execution, RAG retrieval, web search, and direct chat.
     """
 
     def __init__(
         self,
         rag_pipeline: Any = None,
+        code_executor: Any = None,
         vllm_endpoint: str = "http://192.168.1.100:8000/v1",
         searxng_endpoint: str = "http://searxng.search-engine:8080",
         model: str = "mistralai/Mistral-7B-Instruct-v0.2"
@@ -65,11 +67,13 @@ class CipherAgent:
 
         Args:
             rag_pipeline: RAG pipeline for document retrieval
+            code_executor: Code executor for running Python code
             vllm_endpoint: vLLM server endpoint
             searxng_endpoint: SearXNG server endpoint
             model: Model name for vLLM
         """
         self.rag_pipeline = rag_pipeline
+        self.code_executor = code_executor
         self.vllm_endpoint = vllm_endpoint
         self.searxng_endpoint = searxng_endpoint
         self.model = model
@@ -77,6 +81,7 @@ class CipherAgent:
         # Create tools
         self.tools = create_agent_tools(
             rag_pipeline=rag_pipeline,
+            code_executor=code_executor,
             vllm_endpoint=vllm_endpoint,
             searxng_endpoint=searxng_endpoint,
             model=model
@@ -94,6 +99,7 @@ class CipherAgent:
 
         # Add nodes
         workflow.add_node("router", self._router_node)
+        workflow.add_node("code_execution", self._code_execution_node)
         workflow.add_node("rag_retrieval", self._rag_retrieval_node)
         workflow.add_node("web_search", self._web_search_node)
         workflow.add_node("direct_chat", self._direct_chat_node)
@@ -107,6 +113,7 @@ class CipherAgent:
             "router",
             self._route_query,
             {
+                "code_execution": "code_execution",
                 "rag_retrieval": "rag_retrieval",
                 "web_search": "web_search",
                 "direct_chat": "direct_chat",
@@ -114,6 +121,7 @@ class CipherAgent:
         )
 
         # All tool nodes go to synthesize
+        workflow.add_edge("code_execution", "synthesize")
         workflow.add_edge("rag_retrieval", "synthesize")
         workflow.add_edge("web_search", "synthesize")
         workflow.add_edge("direct_chat", "synthesize")
@@ -138,14 +146,21 @@ class CipherAgent:
         }
 
         # Routing heuristics
-        # 1. Web search keywords
+        # 1. Code execution keywords
+        code_keywords = [
+            "run", "execute", "execute code", "calculate", "test",
+            "implement", "write code", "python code", "run python",
+            "compute", "run this", "execute this"
+        ]
+
+        # 2. Web search keywords
         web_keywords = [
             "latest", "recent", "current", "today", "news", "weather",
             "what's new", "updates", "happening now", "breaking",
             "search the web", "search for", "look up online"
         ]
 
-        # 2. RAG retrieval keywords
+        # 3. RAG retrieval keywords
         rag_keywords = [
             "document", "knowledge base", "what do you know about",
             "in our docs", "according to", "stored information",
@@ -153,7 +168,9 @@ class CipherAgent:
         ]
 
         # Determine tool
-        if any(keyword in query for keyword in web_keywords):
+        if any(keyword in query for keyword in code_keywords) and self.code_executor:
+            selected_tool = "code_execution"
+        elif any(keyword in query for keyword in web_keywords):
             selected_tool = "web_search"
         elif any(keyword in query for keyword in rag_keywords) and self.rag_pipeline:
             selected_tool = "rag_retrieval"
@@ -174,6 +191,22 @@ class CipherAgent:
     def _route_query(self, state: AgentState) -> str:
         """Return the selected tool for conditional routing"""
         return state["selected_tool"]
+
+    async def _code_execution_node(self, state: AgentState) -> AgentState:
+        """Execute Python code"""
+        try:
+            logger.info("Executing Python code...")
+            tool: CodeExecutionTool = self.tool_map["code_execution"]
+            result = await tool._arun(code=state["query"])
+
+            state["tool_outputs"]["code_execution"] = result
+            logger.info(f"Code execution completed: {len(result)} chars")
+
+        except Exception as e:
+            logger.error(f"Code execution failed: {e}")
+            state["tool_outputs"]["code_execution"] = f"Error: {str(e)}"
+
+        return state
 
     async def _rag_retrieval_node(self, state: AgentState) -> AgentState:
         """Execute RAG retrieval"""
@@ -245,9 +278,9 @@ class CipherAgent:
             selected_tool = state["selected_tool"]
             tool_output = state["tool_outputs"].get(selected_tool, "No output available")
 
-            # For RAG and web search, synthesize with LLM
+            # For RAG, web search, and code execution, synthesize with LLM
             # For direct chat, use output directly
-            if selected_tool in ["rag_retrieval", "web_search"]:
+            if selected_tool in ["rag_retrieval", "web_search", "code_execution"]:
                 # Create synthesis prompt
                 prompt = self._create_synthesis_prompt(
                     query=state["query"],
@@ -295,7 +328,18 @@ class CipherAgent:
 
     def _create_synthesis_prompt(self, query: str, tool_name: str, tool_output: str) -> str:
         """Create prompt for synthesizing final response"""
-        if tool_name == "rag_retrieval":
+        if tool_name == "code_execution":
+            return f"""You are Cipher, an AI assistant. The user asked you to execute Python code. Here are the results.
+
+User Request: {query}
+
+Execution Results:
+{tool_output}
+
+Provide a clear explanation of what was executed and the results. If there were errors, explain them clearly.
+
+Answer: """
+        elif tool_name == "rag_retrieval":
             return f"""You are Cipher, an AI assistant. Use the following retrieved documents to answer the user's question.
 
 Retrieved Documents:

@@ -1,0 +1,55 @@
+---
+# Service Account for API Backend to create Jobs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-backend-sa
+  namespace: default
+  labels:
+    app: aeon
+    component: api
+
+---
+# Role for creating and managing Jobs
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: code-execution-role
+  namespace: default
+  labels:
+    app: aeon
+    component: code-execution
+rules:
+  # Job permissions
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+
+  # Pod permissions (to get logs)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+
+  # Pod logs permissions
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+
+---
+# Bind the role to the service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: code-execution-rolebinding
+  namespace: default
+  labels:
+    app: aeon
+    component: code-execution
+subjects:
+  - kind: ServiceAccount
+    name: api-backend-sa
+    namespace: default
+roleRef:
+  kind: Role
+  name: code-execution-role
+  apiGroup: rbac.authorization.k8s.io
