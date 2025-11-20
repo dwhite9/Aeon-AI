@@ -27,6 +27,9 @@ from rag import RAGPipeline, QdrantVectorStore, RAGAnalytics, process_and_chunk_
 # Import Agent components
 from agent import CipherAgent
 
+# Import Code Execution components
+from code_exec import CodeExecutor
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -44,12 +47,13 @@ SEARXNG_ENDPOINT = os.getenv("SEARXNG_ENDPOINT", "http://searxng.search-engine:8
 SESSION_TTL = 3600  # 1 hour
 ENABLE_RAG = os.getenv("ENABLE_RAG", "true").lower() == "true"
 ENABLE_AGENT = os.getenv("ENABLE_AGENT", "true").lower() == "true"
+ENABLE_CODE_EXEC = os.getenv("ENABLE_CODE_EXEC", "true").lower() == "true"
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Aeon AI Platform API",
-    description="API for Cipher AI agent with RAG capabilities, web search, and intelligent routing",
-    version="0.3.0"
+    description="API for Cipher AI agent with RAG capabilities, web search, code execution, and intelligent routing",
+    version="0.4.0"
 )
 
 # CORS middleware
@@ -66,6 +70,7 @@ redis_client: Optional[redis.Redis] = None
 rag_pipeline: Optional[RAGPipeline] = None
 rag_analytics: Optional[RAGAnalytics] = None
 cipher_agent: Optional[CipherAgent] = None
+code_executor: Optional[CodeExecutor] = None
 
 
 # Pydantic models
@@ -149,8 +154,8 @@ class AgentResponse(BaseModel):
 # Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize Redis, RAG pipeline, and Cipher agent on startup"""
-    global redis_client, rag_pipeline, rag_analytics, cipher_agent
+    """Initialize Redis, RAG pipeline, Code Executor, and Cipher agent on startup"""
+    global redis_client, rag_pipeline, rag_analytics, cipher_agent, code_executor
 
     try:
         # Initialize Redis
@@ -192,6 +197,23 @@ async def startup_event():
         else:
             logger.info("RAG pipeline disabled (set ENABLE_RAG=true to enable)")
 
+        # Initialize Code Executor if enabled
+        if ENABLE_CODE_EXEC:
+            logger.info("Initializing Code Executor...")
+
+            code_executor = CodeExecutor(
+                namespace="default",
+                executor_image="python:3.11-slim",
+                cpu_limit="500m",
+                memory_limit="512Mi",
+                timeout_seconds=30,
+                max_output_lines=1000
+            )
+
+            logger.info("Code Executor initialized successfully")
+        else:
+            logger.info("Code Executor disabled (set ENABLE_CODE_EXEC=true to enable)")
+
         # Initialize Cipher agent if enabled
         if ENABLE_AGENT:
             logger.info("Initializing Cipher agent...")
@@ -200,7 +222,8 @@ async def startup_event():
                 rag_pipeline=rag_pipeline if ENABLE_RAG else None,
                 vllm_endpoint=VLLM_ENDPOINT,
                 searxng_endpoint=SEARXNG_ENDPOINT,
-                model="mistralai/Mistral-7B-Instruct-v0.2"
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                code_executor=code_executor if ENABLE_CODE_EXEC else None
             )
 
             logger.info("Cipher agent initialized successfully")
@@ -279,13 +302,14 @@ async def root():
     """Root endpoint - API information"""
     return {
         "service": "Aeon AI Platform",
-        "version": "0.2.0",
+        "version": "0.4.0",
         "status": "operational",
         "agent": "Cipher",
         "features": {
             "rag": ENABLE_RAG,
             "chat": True,
-            "websocket": True
+            "websocket": True,
+            "code_execution": ENABLE_CODE_EXEC
         }
     }
 
