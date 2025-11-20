@@ -27,6 +27,13 @@ echo_step() {
     echo -e "${BLUE}[Aeon::Podman]${NC} $1"
 }
 
+# Load environment variables from .env if it exists
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ -f "$REPO_ROOT/.env" ]; then
+    source "$REPO_ROOT/.env"
+fi
+
 # Check for podman-compose
 check_podman_compose() {
     if ! command -v podman-compose &> /dev/null; then
@@ -37,15 +44,21 @@ check_podman_compose() {
 
 # Get host IP address (needed for K8s pods to reach Podman services)
 get_host_ip() {
-    # Try to get the primary interface IP
-    HOST_IP=$(ip route get 1.1.1.1 | grep -oP 'src \K[^ ]+' 2>/dev/null || echo "")
-
-    if [ -z "$HOST_IP" ]; then
-        # Fallback: use hostname -I
-        HOST_IP=$(hostname -I | awk '{print $1}')
+    # Use HOST_IP from .env if set, otherwise auto-detect
+    if [ -n "$HOST_IP" ]; then
+        echo "$HOST_IP"
+        return
     fi
 
-    echo "$HOST_IP"
+    # Try to get the primary interface IP
+    local detected_ip=$(ip route get 1.1.1.1 | grep -oP 'src \K[^ ]+' 2>/dev/null || echo "")
+
+    if [ -z "$detected_ip" ]; then
+        # Fallback: use hostname -I
+        detected_ip=$(hostname -I | awk '{print $1}')
+    fi
+
+    echo "$detected_ip"
 }
 
 # Start production inference services (vLLM + Embeddings + Registry)

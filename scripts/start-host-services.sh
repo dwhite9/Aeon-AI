@@ -21,12 +21,21 @@ echo_error() {
     echo -e "${RED}[Aeon::Host]${NC} $1"
 }
 
+# Load environment variables from .env if it exists
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ -f "$REPO_ROOT/.env" ]; then
+    echo_info "Loading environment from .env"
+    source "$REPO_ROOT/.env"
+fi
+
 echo_info "=== Starting Aeon Host Services ==="
 echo ""
 
-# Set TMPDIR to use /zdata for builds (more space)
-export TMPDIR=/zdata/tmp
+# Set TMPDIR from environment or use default
+export TMPDIR="${TMPDIR:-/tmp}"
 mkdir -p "$TMPDIR"
+echo_info "Using TMPDIR: $TMPDIR"
 
 # Detect container runtime and compose tool
 if command -v podman-compose &> /dev/null; then
