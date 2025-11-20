@@ -1,0 +1,269 @@
+version: '3.8'
+
+# Aeon AI Platform - Podman Compose Configuration
+# This replaces localhost services with containerized Podman services for better isolation
+#
+# Usage:
+#   Production: podman-compose up -d
+#   Development: podman-compose --profile dev up -d
+#
+# Networks:
+#   aeon-network: Isolated network for all Aeon services
+
+networks:
+  aeon-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  vllm-cache:
+    driver: local
+  embedding-cache:
+    driver: local
+  registry-data:
+    driver: local
+
+services:
+  # vLLM Inference Server (GPU-accelerated)
+  # Replaces: inference/start_vllm.sh running on host
+  vllm-server:
+    image: vllm/vllm-openai:latest
+    container_name: aeon-vllm
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.10
+    ports:
+      - "8000:8000"
+    volumes:
+      - vllm-cache:/root/.cache/huggingface
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - HF_HOME=/root/.cache/huggingface
+    command: >
+      --model mistralai/Mistral-7B-Instruct-v0.3
+      --quantization bitsandbytes
+      --load-format bitsandbytes
+      --dtype float16
+      --max-model-len 8192
+      --gpu-memory-utilization 0.6
+      --host 0.0.0.0
+      --port 8000
+      --trust-remote-code
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    labels:
+      - "aeon.service=vllm"
+      - "aeon.type=inference"
+
+  # Embedding Service (GPU-accelerated)
+  # Replaces: inference/embedding_server.py running on host
+  embedding-server:
+    build:
+      context: ./inference
+      dockerfile: Dockerfile.embeddings
+    image: localhost:5000/aeon-embeddings:latest
+    container_name: aeon-embeddings
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.11
+    ports:
+      - "8001:8001"
+    volumes:
+      - embedding-cache:/root/.cache/torch
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - TORCH_HOME=/root/.cache/torch
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "aeon.service=embeddings"
+      - "aeon.type=inference"
+
+  # Local Container Registry
+  # Replaces: Docker registry on localhost:5000
+  registry:
+    image: docker.io/library/registry:2
+    container_name: aeon-registry
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.20
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry-data:/var/lib/registry
+    environment:
+      - REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/var/lib/registry
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/v2/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "aeon.service=registry"
+      - "aeon.type=infrastructure"
+
+  # Development Services (activated with --profile dev)
+
+  # Redis Cache for Development
+  redis-dev:
+    image: docker.io/library/redis:7-alpine
+    container_name: aeon-redis-dev
+    profiles: ["dev"]
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.30
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 4gb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "aeon.service=redis"
+      - "aeon.type=cache"
+      - "aeon.env=development"
+
+  # PostgreSQL for Development
+  postgres-dev:
+    image: docker.io/library/postgres:15-alpine
+    container_name: aeon-postgres-dev
+    profiles: ["dev"]
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.31
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=aiplatform
+      - POSTGRES_USER=aiuser
+      - POSTGRES_PASSWORD=changeme
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiuser -d aiplatform"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "aeon.service=postgres"
+      - "aeon.type=database"
+      - "aeon.env=development"
+
+  # Qdrant Vector Database for Development
+  qdrant-dev:
+    image: docker.io/qdrant/qdrant:latest
+    container_name: aeon-qdrant-dev
+    profiles: ["dev"]
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.32
+    ports:
+      - "6333:6333"  # HTTP
+      - "6334:6334"  # gRPC
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "aeon.service=qdrant"
+      - "aeon.type=vector-db"
+      - "aeon.env=development"
+
+  # Backend API for Development
+  backend-dev:
+    build:
+      context: ./services
+      dockerfile: Dockerfile
+    image: localhost:5000/aeon-api:latest
+    container_name: aeon-backend-dev
+    profiles: ["dev"]
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.40
+    ports:
+      - "8080:8080"
+    environment:
+      - VLLM_ENDPOINT=http://172.20.0.10:8000/v1
+      - EMBEDDING_ENDPOINT=http://172.20.0.11:8001
+      - REDIS_HOST=172.20.0.30
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=172.20.0.31
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=aiplatform
+      - POSTGRES_USER=aiuser
+      - POSTGRES_PASSWORD=changeme
+      - QDRANT_HOST=http://172.20.0.32:6333
+    depends_on:
+      - vllm-server
+      - embedding-server
+      - redis-dev
+      - postgres-dev
+      - qdrant-dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "aeon.service=api"
+      - "aeon.type=application"
+      - "aeon.env=development"
+
+  # Frontend UI for Development
+  frontend-dev:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    image: localhost:5000/aeon-ui:latest
+    container_name: aeon-frontend-dev
+    profiles: ["dev"]
+    networks:
+      aeon-network:
+        ipv4_address: 172.20.0.41
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend-dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://localhost/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "aeon.service=ui"
+      - "aeon.type=application"
+      - "aeon.env=development"
