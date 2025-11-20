@@ -31,9 +31,31 @@ fi
 echo_info "=== Aeon AI Platform Setup ==="
 echo ""
 
+# Determine container runtime
+echo_info "Detecting container runtime..."
+if command -v podman &> /dev/null; then
+    RUNTIME="podman"
+    echo_info "Using Podman (recommended for better isolation)"
+elif command -v docker &> /dev/null; then
+    RUNTIME="docker"
+    echo_warn "Using Docker. Consider installing Podman for better isolation:"
+    echo_warn "  Run: scripts/install-podman.sh"
+else
+    echo_error "Neither Docker nor Podman found. Please install one of them."
+    exit 1
+fi
+echo ""
+
 # Get host IP address
-echo_warn "Please enter your host machine's IP address (where vLLM will run):"
+echo_warn "Please enter your host machine's IP address (where inference services will run):"
+echo_warn "Or press Enter to auto-detect..."
 read -p "Host IP: " HOST_IP
+
+if [ -z "$HOST_IP" ]; then
+    # Auto-detect host IP
+    HOST_IP=$(ip route get 1.1.1.1 | grep -oP 'src \K[^ ]+' 2>/dev/null || hostname -I | awk '{print $1}')
+    echo_info "Auto-detected host IP: $HOST_IP"
+fi
 
 if [ -z "$HOST_IP" ]; then
     echo_error "Host IP is required"
@@ -118,17 +140,17 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 
 echo_info "Infrastructure services deployed"
 
-# Step 5: Start local Docker registry
-echo_info "Step 5/7: Setting up local Docker registry..."
-if [ "$(docker ps -q -f name=registry)" ]; then
-    echo_warn "Docker registry already running"
+# Step 5: Start local container registry
+echo_info "Step 5/7: Setting up local container registry..."
+if [ "$($RUNTIME ps -q -f name=registry 2>/dev/null || $RUNTIME ps -q -f name=aeon-registry 2>/dev/null)" ]; then
+    echo_warn "Container registry already running"
 else
-    docker run -d -p 5000:5000 --restart=always --name registry registry:2
-    echo_info "Docker registry started on port 5000"
+    $RUNTIME run -d -p 5000:5000 --restart=always --name registry registry:2
+    echo_info "Container registry started on port 5000 using $RUNTIME"
 fi
 
-# Step 6: Build and push Docker images
-echo_info "Step 6/7: Building and pushing Docker images..."
+# Step 6: Build and push container images
+echo_info "Step 6/7: Building and pushing container images with $RUNTIME..."
 
 # Update API backend config with host IP
 echo_info "Updating API backend configuration with host IP..."
@@ -137,15 +159,15 @@ sed -i "s/192.168.1.100/$HOST_IP/g" ../k8s/app/api-backend.yaml
 # Build and push backend
 echo_info "Building backend image..."
 cd ../services
-docker build -t localhost:5000/aeon-api:latest .
-docker push localhost:5000/aeon-api:latest
+$RUNTIME build -t localhost:5000/aeon-api:latest .
+$RUNTIME push localhost:5000/aeon-api:latest
 echo_info "Backend image pushed"
 
 # Build and push frontend
 echo_info "Building frontend image..."
 cd ../ui
-docker build -t localhost:5000/aeon-ui:latest .
-docker push localhost:5000/aeon-ui:latest
+$RUNTIME build -t localhost:5000/aeon-ui:latest .
+$RUNTIME push localhost:5000/aeon-ui:latest
 echo_info "Frontend image pushed"
 
 cd ../scripts
@@ -164,9 +186,15 @@ kubectl wait --for=condition=ready pod -l app=ui-frontend --timeout=300s || echo
 echo ""
 echo_info "=== Setup Complete! ==="
 echo ""
+echo_info "Container Runtime: $RUNTIME"
+echo ""
 echo_info "Next steps:"
 echo ""
-echo "1. Start host services (vLLM and embeddings):"
+echo "1. Start inference services with Podman (recommended for isolation):"
+echo "   cd ../scripts"
+echo "   ./podman-services.sh start-prod"
+echo ""
+echo "   OR start traditionally on host:"
 echo "   cd ../inference"
 echo "   ./start_vllm.sh  # In one terminal"
 echo "   python3 embedding_server.py  # In another terminal"
@@ -178,5 +206,7 @@ echo ""
 echo "3. Check service status:"
 echo "   kubectl get pods -A"
 echo "   kubectl logs -f deployment/api-backend"
+echo "   ./podman-services.sh status  # Check Podman services"
 echo ""
+echo_info "For development environment, run: ./podman-services.sh start-dev"
 echo_info "Happy chatting with Cipher!"
