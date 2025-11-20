@@ -1,0 +1,35 @@
+[project]
+name = "aeon-inference"
+version = "0.1.0"
+description = "Aeon AI Platform - Inference Services (vLLM & Embeddings)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "vllm>=0.6.0",
+    "bitsandbytes>=0.41.0",
+    "sentence-transformers>=2.2.2",
+    "torch>=2.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

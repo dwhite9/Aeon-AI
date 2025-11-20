@@ -1,0 +1,40 @@
+# Nightly optimization CronJob
+# Runs at 2 AM daily to optimize vector database and cache
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: nightly-optimize
+  namespace: default
+  labels:
+    app: nightly-optimize
+    component: optimization
+spec:
+  schedule: "0 2 * * *"  # 2 AM daily
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: nightly-optimize
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: optimizer
+            image: localhost:5000/aeon-optimizer:latest
+            imagePullPolicy: Always
+            resources:
+              requests:
+                memory: "4Gi"
+                cpu: "2"
+              limits:
+                memory: "4Gi"
+                cpu: "2"
+            envFrom:
+            - configMapRef:
+                name: api-backend-config
+            - secretRef:
+                name: api-backend-secrets
+---
+# Placeholder for optimizer implementation (Phase 5)
+# This will be implemented in the self-tuning phase

@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Embedding service running on GPU
+  embeddings:
+    build:
+      context: .
+      dockerfile: Dockerfile.embeddings
+    container_name: aeon-embeddings
+    ports:
+      - "8001:8001"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Note: vLLM is recommended to run directly on host for better performance
+  # Use start_vllm.sh script instead of Docker for vLLM

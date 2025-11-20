@@ -1,0 +1,9 @@
+# Namespace for Aeon application components
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aeon
+  labels:
+    name: aeon
+    app: aeon-platform

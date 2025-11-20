@@ -1,0 +1,42 @@
+# Prometheus and Grafana for monitoring
+# Deployed using Helm, this file documents the configuration
+
+# Install command:
+# helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#   --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=20Gi \
+#   --set prometheus.prometheusSpec.resources.requests.memory=4Gi \
+#   --set prometheus.prometheusSpec.resources.requests.cpu=2 \
+#   --set grafana.service.type=NodePort \
+#   --set grafana.service.nodePort=30001
+
+# Grafana will be available at: http://localhost:30001
+# Default credentials: admin/prom-operator
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-stack-values
+  namespace: default
+data:
+  values.yaml: |
+    prometheus:
+      prometheusSpec:
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: local-path
+              resources:
+                requests:
+                  storage: 20Gi
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+    grafana:
+      service:
+        type: NodePort
+        nodePort: 30001
+      adminPassword: "prom-operator"

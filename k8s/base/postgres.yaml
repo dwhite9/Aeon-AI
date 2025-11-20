@@ -1,0 +1,39 @@
+# PostgreSQL for analytics and query logging
+# Deployed using Helm, this file documents the configuration
+
+# Install command:
+# helm install postgres bitnami/postgresql \
+#   --set primary.persistence.size=20Gi \
+#   --set primary.persistence.storageClass=local-path \
+#   --set primary.resources.requests.memory=8Gi \
+#   --set primary.resources.requests.cpu=2 \
+#   --set primary.resources.limits.memory=8Gi \
+#   --set primary.resources.limits.cpu=2 \
+#   --set auth.database=aiplatform \
+#   --set auth.username=aiuser \
+#   --set auth.password=changeme
+
+# Service will be available at: postgres-postgresql:5432
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-values
+  namespace: default
+data:
+  values.yaml: |
+    primary:
+      persistence:
+        size: 20Gi
+        storageClass: local-path
+      resources:
+        requests:
+          memory: "8Gi"
+          cpu: "2"
+        limits:
+          memory: "8Gi"
+          cpu: "2"
+    auth:
+      database: "aiplatform"
+      username: "aiuser"
+      password: "changeme"  # Change in production!

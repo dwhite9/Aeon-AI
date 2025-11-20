@@ -1,0 +1,33 @@
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+# Set working directory
+WORKDIR /app
+
+# Install Python, curl, and UV
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3-pip \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add UV to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Install Python packages using UV
+COPY pyproject.toml .
+COPY requirements.txt .
+RUN uv pip install --system --no-cache -r requirements.txt
+
+# Copy embedding server
+COPY embedding_server.py .
+
+# Expose port
+EXPOSE 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8001/health || exit 1
+
+# Run server
+CMD ["python3", "embedding_server.py"]

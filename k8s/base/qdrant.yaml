@@ -1,0 +1,87 @@
+# Qdrant Vector Database
+# For RAG document storage and semantic caching
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vector-db
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: qdrant
+  namespace: vector-db
+  labels:
+    app: qdrant
+spec:
+  serviceName: qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qdrant
+  template:
+    metadata:
+      labels:
+        app: qdrant
+    spec:
+      containers:
+      - name: qdrant
+        image: qdrant/qdrant:latest
+        ports:
+        - containerPort: 6333
+          name: http
+        - containerPort: 6334
+          name: grpc
+        resources:
+          requests:
+            memory: "12Gi"
+            cpu: "4"
+          limits:
+            memory: "12Gi"
+            cpu: "4"
+        volumeMounts:
+        - name: storage
+          mountPath: /qdrant/storage
+        env:
+        - name: QDRANT__SERVICE__GRPC_PORT
+          value: "6334"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 6333
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 6333
+          initialDelaySeconds: 10
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: vector-db
+  labels:
+    app: qdrant
+spec:
+  selector:
+    app: qdrant
+  ports:
+  - port: 6333
+    name: http
+    targetPort: 6333
+  - port: 6334
+    name: grpc
+    targetPort: 6334
+  clusterIP: None
