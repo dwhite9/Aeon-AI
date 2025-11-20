@@ -61,16 +61,17 @@ View detailed architecture diagrams in the [diagrams/](diagrams/) directory:
 - ✅ Kubernetes manifests for infrastructure and application
 - ✅ Deployment scripts and automation
 
-🚧 **Phase 2: RAG Pipeline - TODO**
-- ⏳ Document processing and semantic chunking
-- ⏳ Qdrant integration for vector storage
-- ⏳ Retrieval with two-tier caching
-- ⏳ PostgreSQL analytics integration
+✅ **Phase 2: RAG Pipeline - COMPLETE**
+- ✅ Document processing and semantic chunking
+- ✅ Qdrant integration for vector storage
+- ✅ Retrieval with two-tier caching (Redis + Qdrant)
+- ✅ PostgreSQL analytics integration
 
-🚧 **Phase 3: Advanced Agent System - TODO**
-- ⏳ LangGraph multi-tool agent implementation
-- ⏳ Web search integration (SearXNG)
-- ⏳ Tool orchestration and routing
+✅ **Phase 3: Advanced Agent System - COMPLETE**
+- ✅ LangGraph multi-tool agent implementation (Cipher)
+- ✅ Web search integration (SearXNG)
+- ✅ Tool orchestration and intelligent routing
+- ✅ Agent API endpoints and status monitoring
 
 🚧 **Phase 4: Code Execution - TODO**
 - ⏳ Kubernetes Job-based code execution
@@ -310,15 +311,15 @@ After running the setup script:
 
 ```
 aeon/
-├── agent/              # Cipher agent logic (LangGraph workflows) - TODO
 ├── services/           # FastAPI backend services
 │   ├── api/           # Main API endpoints ✅
-│   ├── rag/           # RAG retrieval and chunking - TODO
+│   ├── rag/           # RAG retrieval and chunking ✅
+│   ├── agent/         # Cipher agent (LangGraph workflows) ✅
 │   ├── code_exec/     # Code execution via K8s Jobs - TODO
 │   └── analytics/     # Query logging and optimization - TODO
 ├── inference/          # vLLM and embedding server configs ✅
 ├── k8s/               # Kubernetes manifests ✅
-│   ├── base/          # Core infrastructure ✅
+│   ├── base/          # Core infrastructure (incl. SearXNG) ✅
 │   ├── app/           # Application deployments ✅
 │   └── jobs/          # CronJobs for optimization - TODO
 ├── ui/                # React frontend ✅

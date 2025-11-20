@@ -24,6 +24,9 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 from rag import RAGPipeline, QdrantVectorStore, RAGAnalytics, process_and_chunk_document
 
+# Import Agent components
+from agent import CipherAgent
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -37,14 +40,16 @@ EMBEDDING_ENDPOINT = os.getenv("EMBEDDING_ENDPOINT", "http://192.168.1.100:8001"
 QDRANT_HOST = os.getenv("QDRANT_HOST", "http://qdrant.vector-db:6333")
 REDIS_HOST = os.getenv("REDIS_HOST", "redis-master")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+SEARXNG_ENDPOINT = os.getenv("SEARXNG_ENDPOINT", "http://searxng.search-engine:8080")
 SESSION_TTL = 3600  # 1 hour
 ENABLE_RAG = os.getenv("ENABLE_RAG", "true").lower() == "true"
+ENABLE_AGENT = os.getenv("ENABLE_AGENT", "true").lower() == "true"
 
 # Initialize FastAPI app
 app = FastAPI(
     title="Aeon AI Platform API",
-    description="API for Cipher AI agent with RAG capabilities",
-    version="0.2.0"
+    description="API for Cipher AI agent with RAG capabilities, web search, and intelligent routing",
+    version="0.3.0"
 )
 
 # CORS middleware
@@ -60,6 +65,7 @@ app.add_middleware(
 redis_client: Optional[redis.Redis] = None
 rag_pipeline: Optional[RAGPipeline] = None
 rag_analytics: Optional[RAGAnalytics] = None
+cipher_agent: Optional[CipherAgent] = None
 
 
 # Pydantic models
@@ -127,11 +133,24 @@ class RAGChatResponse(BaseModel):
     timestamp: str
 
 
+class AgentRequest(BaseModel):
+    query: str
+    session_id: Optional[str] = None
+
+
+class AgentResponse(BaseModel):
+    response: str
+    session_id: str
+    tool_used: str
+    metadata: Dict[str, Any]
+    timestamp: str
+
+
 # Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize Redis and RAG pipeline on startup"""
-    global redis_client, rag_pipeline, rag_analytics
+    """Initialize Redis, RAG pipeline, and Cipher agent on startup"""
+    global redis_client, rag_pipeline, rag_analytics, cipher_agent
 
     try:
         # Initialize Redis
@@ -172,6 +191,22 @@ async def startup_event():
                 logger.warning(f"RAG pipeline initialized with warnings: {health}")
         else:
             logger.info("RAG pipeline disabled (set ENABLE_RAG=true to enable)")
+
+        # Initialize Cipher agent if enabled
+        if ENABLE_AGENT:
+            logger.info("Initializing Cipher agent...")
+
+            cipher_agent = CipherAgent(
+                rag_pipeline=rag_pipeline if ENABLE_RAG else None,
+                vllm_endpoint=VLLM_ENDPOINT,
+                searxng_endpoint=SEARXNG_ENDPOINT,
+                model="mistralai/Mistral-7B-Instruct-v0.2"
+            )
+
+            logger.info("Cipher agent initialized successfully")
+            logger.info(f"Agent tools: {[tool.name for tool in cipher_agent.tools]}")
+        else:
+            logger.info("Cipher agent disabled (set ENABLE_AGENT=true to enable)")
 
     except Exception as e:
         logger.error(f"Startup error: {e}")
@@ -280,6 +315,16 @@ async def health_check():
             health_status["status"] = "degraded"
     else:
         health_status["rag"] = "disabled"
+
+    # Check Cipher agent if enabled
+    if ENABLE_AGENT and cipher_agent:
+        health_status["agent"] = "healthy"
+        health_status["agent_tools"] = len(cipher_agent.tools)
+    elif ENABLE_AGENT:
+        health_status["agent"] = "unhealthy: not initialized"
+        health_status["status"] = "degraded"
+    else:
+        health_status["agent"] = "disabled"
 
     return health_status
 
@@ -522,6 +567,108 @@ async def rag_stats():
     except Exception as e:
         logger.error(f"Error getting RAG stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===== Agent Endpoints (Cipher) =====
+
+@app.post("/api/agent/query", response_model=AgentResponse)
+async def agent_query(request: AgentRequest):
+    """
+    Query the Cipher agent with intelligent routing
+
+    The agent automatically routes to:
+    - RAG retrieval for knowledge base queries
+    - Web search for current information
+    - Direct chat for general conversation
+    """
+    if not ENABLE_AGENT:
+        raise HTTPException(status_code=503, detail="Cipher agent is not enabled")
+
+    if not cipher_agent:
+        raise HTTPException(status_code=503, detail="Cipher agent not initialized")
+
+    # Generate session ID if not provided
+    session_id = request.session_id or str(uuid.uuid4())
+
+    try:
+        logger.info(f"Agent query from session {session_id}: {request.query[:100]}")
+
+        # Run agent
+        result = await cipher_agent.run(query=request.query)
+
+        # Save to session history if Redis is available
+        if redis_client:
+            try:
+                history = await get_session_history(session_id)
+                history.append({
+                    "role": "user",
+                    "content": request.query,
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+                history.append({
+                    "role": "assistant",
+                    "content": result["response"],
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "tool_used": result["selected_tool"],
+                    "metadata": result["metadata"]
+                })
+
+                # Keep last 20 messages
+                history = history[-20:]
+
+                await redis_client.setex(
+                    f"session:{session_id}",
+                    SESSION_TTL,
+                    json.dumps(history)
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save session history: {e}")
+
+        return AgentResponse(
+            response=result["response"],
+            session_id=session_id,
+            tool_used=result["selected_tool"],
+            metadata=result["metadata"],
+            timestamp=datetime.utcnow().isoformat()
+        )
+
+    except Exception as e:
+        logger.error(f"Agent query error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
+
+@app.get("/api/agent/status")
+async def agent_status():
+    """Get Cipher agent status and available tools"""
+    if not ENABLE_AGENT:
+        return {
+            "enabled": False,
+            "message": "Cipher agent is not enabled"
+        }
+
+    if not cipher_agent:
+        return {
+            "enabled": True,
+            "status": "not_initialized",
+            "message": "Cipher agent failed to initialize"
+        }
+
+    return {
+        "enabled": True,
+        "status": "ready",
+        "tools": [
+            {
+                "name": tool.name,
+                "description": tool.description
+            }
+            for tool in cipher_agent.tools
+        ],
+        "endpoints": {
+            "vllm": VLLM_ENDPOINT,
+            "searxng": SEARXNG_ENDPOINT,
+            "rag_enabled": ENABLE_RAG
+        }
+    }
 
 
 # ===== Chat Endpoints (Original) =====
