@@ -1,0 +1,23 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Container View: Aeon Platform"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Researcher</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Developer using Aeon for AI<br />research and coding<br />assistance</div>"]
+    style 1 fill:#08427b,stroke:#052e56,color:#ffffff
+
+    subgraph 2 ["Aeon Platform"]
+      style 2 fill:#ffffff,stroke:#0b4884,color:#0b4884
+
+      3("<div style='font-weight: bold'>vLLM Server</div><div style='font-size: 70%; margin-top: 0px'>[Container: Docker]</div><div style='font-size: 80%; margin-top:10px'>Mistral 7B Instruct (8-bit)</div>")
+      style 3 fill:#d32f2f,stroke:#932020,color:#ffffff
+      4("<div style='font-weight: bold'>Embedding Server</div><div style='font-size: 70%; margin-top: 0px'>[Container: FastAPI + Docker]</div><div style='font-size: 80%; margin-top:10px'>all-MiniLM-L6-v2</div>")
+      style 4 fill:#d32f2f,stroke:#932020,color:#ffffff
+      5["<div style='font-weight: bold'>Training Pipeline</div><div style='font-size: 70%; margin-top: 0px'>[Container: Docker]</div><div style='font-size: 80%; margin-top:10px'>PyTorch</div>"]
+      style 5 fill:#d32f2f,stroke:#932020,color:#ffffff
+    end
+
+    5-. "<div>Updates model</div><div style='font-size: 70%'></div>" .->4
+
+  end

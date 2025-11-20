@@ -1,0 +1,71 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Container View: Aeon Platform"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Researcher</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Developer using Aeon for AI<br />research and coding<br />assistance</div>"]
+    style 1 fill:#08427b,stroke:#052e56,color:#ffffff
+    27("<div style='font-weight: bold'>Internet</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External web resources</div>")
+    style 27 fill:#999999,stroke:#6b6b6b,color:#ffffff
+
+    subgraph 2 ["Aeon Platform"]
+      style 2 fill:#ffffff,stroke:#0b4884,color:#0b4884
+
+      13("<div style='font-weight: bold'>LangGraph Agent (Cipher)</div><div style='font-size: 70%; margin-top: 0px'>[Container: LangGraph + LangChain]</div><div style='font-size: 80%; margin-top:10px'>Multi-tool agent<br />orchestration</div>")
+      style 13 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      19[("<div style='font-weight: bold'>Qdrant</div><div style='font-size: 70%; margin-top: 0px'>[Container: Qdrant]</div><div style='font-size: 80%; margin-top:10px'>Vector database</div>")]
+      style 19 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      20[("<div style='font-weight: bold'>PostgreSQL</div><div style='font-size: 70%; margin-top: 0px'>[Container: PostgreSQL]</div><div style='font-size: 80%; margin-top:10px'>Relational database</div>")]
+      style 20 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      21["<div style='font-weight: bold'>Redis</div><div style='font-size: 70%; margin-top: 0px'>[Container: Redis]</div><div style='font-size: 80%; margin-top:10px'>In-memory cache</div>"]
+      style 21 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      22("<div style='font-weight: bold'>SearXNG</div><div style='font-size: 70%; margin-top: 0px'>[Container: SearXNG]</div><div style='font-size: 80%; margin-top:10px'>Web search engine</div>")
+      style 22 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      23["<div style='font-weight: bold'>Document Processor</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python CronJob]</div><div style='font-size: 80%; margin-top:10px'>Indexing pipeline</div>"]
+      style 23 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      24("<div style='font-weight: bold'>Code Executor</div><div style='font-size: 70%; margin-top: 0px'>[Container: Kubernetes Jobs]</div><div style='font-size: 80%; margin-top:10px'>Sandboxed execution</div>")
+      style 24 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      25["<div style='font-weight: bold'>Optimizer</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python CronJob]</div><div style='font-size: 80%; margin-top:10px'>Self-tuning system</div>"]
+      style 25 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      26("<div style='font-weight: bold'>Prometheus + Grafana</div><div style='font-size: 70%; margin-top: 0px'>[Container: Prometheus Stack]</div><div style='font-size: 80%; margin-top:10px'>Metrics and monitoring</div>")
+      style 26 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      3("<div style='font-weight: bold'>vLLM Server</div><div style='font-size: 70%; margin-top: 0px'>[Container: Docker]</div><div style='font-size: 80%; margin-top:10px'>Mistral 7B Instruct (8-bit)</div>")
+      style 3 fill:#d32f2f,stroke:#932020,color:#ffffff
+      4("<div style='font-weight: bold'>Embedding Server</div><div style='font-size: 70%; margin-top: 0px'>[Container: FastAPI + Docker]</div><div style='font-size: 80%; margin-top:10px'>all-MiniLM-L6-v2</div>")
+      style 4 fill:#d32f2f,stroke:#932020,color:#ffffff
+      5["<div style='font-weight: bold'>Training Pipeline</div><div style='font-size: 70%; margin-top: 0px'>[Container: Docker]</div><div style='font-size: 80%; margin-top:10px'>PyTorch</div>"]
+      style 5 fill:#d32f2f,stroke:#932020,color:#ffffff
+      6["<div style='font-weight: bold'>React UI</div><div style='font-size: 70%; margin-top: 0px'>[Container: React + TypeScript]</div><div style='font-size: 80%; margin-top:10px'>Chat interface, code editor,<br />analytics</div>"]
+      style 6 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      7("<div style='font-weight: bold'>FastAPI Backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: Python + FastAPI]</div><div style='font-size: 80%; margin-top:10px'>REST + WebSocket API</div>")
+      style 7 fill:#326ce5,stroke:#234ba0,color:#ffffff
+    end
+
+    1-. "<div>Interacts with Cipher via</div><div style='font-size: 70%'></div>" .->6
+    1-. "<div>Views metrics and analytics</div><div style='font-size: 70%'></div>" .->26
+    6-. "<div>Makes API calls to</div><div style='font-size: 70%'>[HTTPS/WSS]</div>" .->7
+    7-. "<div>Delegates requests to</div><div style='font-size: 70%'></div>" .->13
+    7-. "<div>Reads/writes session state</div><div style='font-size: 70%'></div>" .->21
+    7-. "<div>Logs analytics</div><div style='font-size: 70%'></div>" .->20
+    7-. "<div>Searches vectors in</div><div style='font-size: 70%'></div>" .->19
+    13-. "<div>Calls for completions</div><div style='font-size: 70%'>[HTTP]</div>" .->3
+    13-. "<div>Searches web via</div><div style='font-size: 70%'></div>" .->22
+    13-. "<div>Retrieves documents from</div><div style='font-size: 70%'></div>" .->19
+    13-. "<div>Executes code via</div><div style='font-size: 70%'></div>" .->24
+    7-. "<div>Generates embeddings</div><div style='font-size: 70%'>[HTTP]</div>" .->4
+    23-. "<div>Generates embeddings</div><div style='font-size: 70%'>[HTTP]</div>" .->4
+    25-. "<div>Generates embeddings</div><div style='font-size: 70%'>[HTTP]</div>" .->4
+    23-. "<div>Indexes chunks to</div><div style='font-size: 70%'></div>" .->19
+    23-. "<div>Stores metadata in</div><div style='font-size: 70%'></div>" .->20
+    24-. "<div>Stores execution logs</div><div style='font-size: 70%'>[Optional]</div>" .->20
+    25-. "<div>Reads analytics from</div><div style='font-size: 70%'></div>" .->20
+    25-. "<div>Optimizes indices in</div><div style='font-size: 70%'></div>" .->19
+    25-. "<div>Triggers fine-tuning</div><div style='font-size: 70%'></div>" .->5
+    5-. "<div>Updates model</div><div style='font-size: 70%'></div>" .->4
+    22-. "<div>Searches</div><div style='font-size: 70%'></div>" .->27
+    26-. "<div>Scrapes metrics from</div><div style='font-size: 70%'></div>" .->7
+    26-. "<div>Scrapes metrics from</div><div style='font-size: 70%'></div>" .->19
+    26-. "<div>Scrapes metrics from</div><div style='font-size: 70%'></div>" .->20
+
+  end

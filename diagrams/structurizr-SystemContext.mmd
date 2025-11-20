@@ -1,0 +1,17 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["System Context View: Aeon Platform"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    1["<div style='font-weight: bold'>Researcher</div><div style='font-size: 70%; margin-top: 0px'>[Person]</div><div style='font-size: 80%; margin-top:10px'>Developer using Aeon for AI<br />research and coding<br />assistance</div>"]
+    style 1 fill:#08427b,stroke:#052e56,color:#ffffff
+    2("<div style='font-weight: bold'>Aeon Platform</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>Kubernetes-native AI agentic<br />platform with RAG, caching,<br />and self-tuning</div>")
+    style 2 fill:#1168bd,stroke:#0b4884,color:#ffffff
+    27("<div style='font-weight: bold'>Internet</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External web resources</div>")
+    style 27 fill:#999999,stroke:#6b6b6b,color:#ffffff
+
+    1-. "<div>Interacts with Cipher via</div><div style='font-size: 70%'></div>" .->2
+    2-. "<div>Searches</div><div style='font-size: 70%'></div>" .->27
+
+  end

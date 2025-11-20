@@ -1,0 +1,40 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Aeon Platform - FastAPI Backend"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 2 ["Aeon Platform"]
+      style 2 fill:#ffffff,stroke:#0b4884,color:#0b4884
+
+      subgraph 7 ["FastAPI Backend"]
+        style 7 fill:#ffffff,stroke:#234ba0,color:#234ba0
+
+        10("<div style='font-weight: bold'>Semantic Cache</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Caches queries and responses</div>")
+        style 10 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        11("<div style='font-weight: bold'>Tool Manager</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Manages tool execution</div>")
+        style 11 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        12("<div style='font-weight: bold'>Analytics Logger</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Logs queries and feedback</div>")
+        style 12 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        8("<div style='font-weight: bold'>Chat API</div><div style='font-size: 70%; margin-top: 0px'>[Component: FastAPI Router]</div><div style='font-size: 80%; margin-top:10px'>Handles chat requests</div>")
+        style 8 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        9("<div style='font-weight: bold'>RAG Retrieval</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Retrieves relevant context</div>")
+        style 9 fill:#85bbf0,stroke:#5d82a8,color:#000000
+      end
+
+      19[("<div style='font-weight: bold'>Qdrant</div><div style='font-size: 70%; margin-top: 0px'>[Container: Qdrant]</div><div style='font-size: 80%; margin-top:10px'>Vector database</div>")]
+      style 19 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      20[("<div style='font-weight: bold'>PostgreSQL</div><div style='font-size: 70%; margin-top: 0px'>[Container: PostgreSQL]</div><div style='font-size: 80%; margin-top:10px'>Relational database</div>")]
+      style 20 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      21["<div style='font-weight: bold'>Redis</div><div style='font-size: 70%; margin-top: 0px'>[Container: Redis]</div><div style='font-size: 80%; margin-top:10px'>In-memory cache</div>"]
+      style 21 fill:#326ce5,stroke:#234ba0,color:#ffffff
+    end
+
+    8-. "<div>Requests context from</div><div style='font-size: 70%'></div>" .->9
+    8-. "<div>Checks cache</div><div style='font-size: 70%'></div>" .->10
+    9-. "<div>Searches vectors in</div><div style='font-size: 70%'></div>" .->19
+    10-. "<div>Stores responses in</div><div style='font-size: 70%'></div>" .->21
+    10-. "<div>Stores semantic cache in</div><div style='font-size: 70%'></div>" .->19
+    12-. "<div>Writes logs to</div><div style='font-size: 70%'></div>" .->20
+
+  end

@@ -1,0 +1,41 @@
+graph TB
+  linkStyle default fill:#ffffff
+
+  subgraph diagram ["Component View: Aeon Platform - LangGraph Agent (Cipher)"]
+    style diagram fill:#ffffff,stroke:#ffffff
+
+    subgraph 2 ["Aeon Platform"]
+      style 2 fill:#ffffff,stroke:#0b4884,color:#0b4884
+
+      subgraph 13 ["LangGraph Agent (Cipher)"]
+        style 13 fill:#ffffff,stroke:#234ba0,color:#234ba0
+
+        14("<div style='font-weight: bold'>State Graph</div><div style='font-size: 70%; margin-top: 0px'>[Component: LangGraph]</div><div style='font-size: 80%; margin-top:10px'>Workflow state machine</div>")
+        style 14 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        15("<div style='font-weight: bold'>Tool Executor</div><div style='font-size: 70%; margin-top: 0px'>[Component: LangChain]</div><div style='font-size: 80%; margin-top:10px'>Executes selected tools</div>")
+        style 15 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        16("<div style='font-weight: bold'>Web Search Tool</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Searches internet via SearXNG</div>")
+        style 16 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        17("<div style='font-weight: bold'>RAG Search Tool</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Searches local documents</div>")
+        style 17 fill:#85bbf0,stroke:#5d82a8,color:#000000
+        18("<div style='font-weight: bold'>Code Execution Tool</div><div style='font-size: 70%; margin-top: 0px'>[Component: Python]</div><div style='font-size: 80%; margin-top:10px'>Executes code in K8s Jobs</div>")
+        style 18 fill:#85bbf0,stroke:#5d82a8,color:#000000
+      end
+
+      19[("<div style='font-weight: bold'>Qdrant</div><div style='font-size: 70%; margin-top: 0px'>[Container: Qdrant]</div><div style='font-size: 80%; margin-top:10px'>Vector database</div>")]
+      style 19 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      22("<div style='font-weight: bold'>SearXNG</div><div style='font-size: 70%; margin-top: 0px'>[Container: SearXNG]</div><div style='font-size: 80%; margin-top:10px'>Web search engine</div>")
+      style 22 fill:#326ce5,stroke:#234ba0,color:#ffffff
+      24("<div style='font-weight: bold'>Code Executor</div><div style='font-size: 70%; margin-top: 0px'>[Container: Kubernetes Jobs]</div><div style='font-size: 80%; margin-top:10px'>Sandboxed execution</div>")
+      style 24 fill:#326ce5,stroke:#234ba0,color:#ffffff
+    end
+
+    14-. "<div>Routes to</div><div style='font-size: 70%'></div>" .->15
+    15-. "<div>Executes</div><div style='font-size: 70%'></div>" .->16
+    15-. "<div>Executes</div><div style='font-size: 70%'></div>" .->17
+    15-. "<div>Executes</div><div style='font-size: 70%'></div>" .->18
+    16-. "<div>Uses</div><div style='font-size: 70%'></div>" .->22
+    17-. "<div>Queries</div><div style='font-size: 70%'></div>" .->19
+    18-. "<div>Triggers</div><div style='font-size: 70%'></div>" .->24
+
+  end
