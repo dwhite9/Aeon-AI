@@ -202,6 +202,20 @@ EOF
     echo_info "Rootless Podman storage configured"
 fi
 
+# Configure unqualified-search registries for Docker Hub compatibility
+echo_step "Configuring container registries..."
+if ! grep -q "^unqualified-search-registries" /etc/containers/registries.conf 2>/dev/null; then
+    echo_info "Adding Docker Hub to unqualified-search registries..."
+    sudo tee -a /etc/containers/registries.conf > /dev/null << 'EOF'
+
+# Added by Aeon installation - Enable Docker Hub short names
+unqualified-search-registries = ["docker.io"]
+EOF
+    echo_info "Container registries configured for Docker Hub compatibility"
+else
+    echo_info "Registries already configured"
+fi
+
 # Enable Podman socket for Docker compatibility (optional)
 echo_step "Setting up Docker compatibility..."
 systemctl --user enable --now podman.socket 2>/dev/null || echo_warn "Unable to enable Podman socket (may require reboot)"
