@@ -45,56 +45,72 @@ echo ""
 # Check if Podman is already installed
 if command -v podman &> /dev/null; then
     PODMAN_VERSION=$(podman --version | awk '{print $3}')
-    echo_info "Podman is already installed (version: $PODMAN_VERSION)"
-    read -p "Do you want to reinstall/upgrade? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo_info "Installation cancelled"
-        exit 0
+    REQUIRED_VERSION="4.9"
+
+    # Check if version meets minimum requirement
+    if [[ "$(printf '%s\n' "$REQUIRED_VERSION" "$PODMAN_VERSION" | sort -V | head -n1)" == "$REQUIRED_VERSION" ]]; then
+        echo_info "Podman $PODMAN_VERSION is already installed (>= $REQUIRED_VERSION required)"
+        echo_info "Skipping Podman installation. Continuing with remaining setup..."
+        SKIP_PODMAN_INSTALL=true
+    else
+        echo_warn "Podman $PODMAN_VERSION is installed but version $REQUIRED_VERSION+ is required"
+        echo_info "Upgrading Podman..."
+        SKIP_PODMAN_INSTALL=false
     fi
-fi
-
-# Update package list
-echo_step "Step 1/5: Updating package list..."
-sudo apt-get update
-
-# Install prerequisites
-echo_step "Step 2/5: Installing prerequisites..."
-sudo apt-get install -y \
-    curl \
-    wget \
-    ca-certificates \
-    gnupg \
-    lsb-release \
-    software-properties-common
-
-# Add Podman repository (for newer versions)
-echo_step "Step 3/5: Adding Podman repository..."
-
-# For Ubuntu 24.04+, use default repository (includes Podman 4.9+)
-if [[ "$VERSION_ID" == "24.04" ]]; then
-    echo_info "Ubuntu 24.04 detected. Using default repository (Podman 4.9+)..."
-    sudo apt-get update
-# For older Ubuntu versions, use Kubic repository
-elif [[ "$VERSION_ID" == "20.04" || "$VERSION_ID" == "22.04" ]]; then
-    echo_info "Adding Kubic Podman repository for Ubuntu $VERSION_ID..."
-    echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" | \
-        sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
-    curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key | \
-        gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kubic-libcontainers.gpg > /dev/null
-    sudo apt-get update
 else
-    echo_warn "Ubuntu version $VERSION_ID detected. Using default repository."
-    sudo apt-get update
+    SKIP_PODMAN_INSTALL=false
 fi
 
-# Install Podman
-echo_step "Step 4/5: Installing Podman..."
-sudo apt-get install -y podman
+if [ "$SKIP_PODMAN_INSTALL" = false ]; then
+    # Update package list
+    echo_step "Step 1/5: Updating package list..."
 
-# Verify installation
-PODMAN_VERSION=$(podman --version | awk '{print $3}')
-echo_info "Podman installed successfully: version $PODMAN_VERSION"
+    # Clean up broken NVIDIA repo if it exists
+    if [ -f /etc/apt/sources.list.d/nvidia-container-toolkit.list ]; then
+        echo_info "Cleaning up broken NVIDIA repository..."
+        sudo rm -f /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    fi
+
+    sudo apt-get update
+
+    # Install prerequisites
+    echo_step "Step 2/5: Installing prerequisites..."
+    sudo apt-get install -y \
+        curl \
+        wget \
+        ca-certificates \
+        gnupg \
+        lsb-release \
+        software-properties-common
+
+    # Add Podman repository (for newer versions)
+    echo_step "Step 3/5: Adding Podman repository..."
+
+    # For Ubuntu 24.04+, use default repository (includes Podman 4.9+)
+    if [[ "$VERSION_ID" == "24.04" ]]; then
+        echo_info "Ubuntu 24.04 detected. Using default repository (Podman 4.9+)..."
+        sudo apt-get update
+    # For older Ubuntu versions, use Kubic repository
+    elif [[ "$VERSION_ID" == "20.04" || "$VERSION_ID" == "22.04" ]]; then
+        echo_info "Adding Kubic Podman repository for Ubuntu $VERSION_ID..."
+        echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" | \
+            sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list
+        curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_${VERSION_ID}/Release.key | \
+            gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/kubic-libcontainers.gpg > /dev/null
+        sudo apt-get update
+    else
+        echo_warn "Ubuntu version $VERSION_ID detected. Using default repository."
+        sudo apt-get update
+    fi
+
+    # Install Podman
+    echo_step "Step 4/5: Installing Podman..."
+    sudo apt-get install -y podman
+
+    # Verify installation
+    PODMAN_VERSION=$(podman --version | awk '{print $3}')
+    echo_info "Podman installed successfully: version $PODMAN_VERSION"
+fi
 
 # Install podman-compose
 echo_step "Step 5/5: Installing podman-compose..."
