@@ -332,6 +332,23 @@ fi
 ./scripts/podman-services.sh stop
 ```
 
+### Managing vLLM Server
+
+```bash
+# Start vLLM server (runs in foreground with trap handler)
+cd inference
+./start_vllm.sh
+
+# Stop vLLM server (graceful shutdown)
+./stop_vllm.sh
+
+# Force kill if needed
+pkill -9 -f 'vllm serve'
+
+# Check GPU memory
+nvidia-smi
+```
+
 ### Managing K8s Deployments
 
 ```bash
@@ -436,6 +453,41 @@ sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
 
 # Test GPU access
 podman run --rm --device nvidia.com/gpu=all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
+```
+
+**GPU memory not cleaned up after stopping vLLM**
+```bash
+# Check what's using GPU
+nvidia-smi
+
+# Find vLLM processes
+ps aux | grep vllm
+
+# Use stop script for graceful cleanup
+cd inference
+./stop_vllm.sh
+
+# If stop script fails, force kill
+pkill -9 -f 'vllm serve'
+
+# Find all processes using GPU
+sudo fuser -v /dev/nvidia*
+
+# Last resort: reset GPU (requires sudo, kills all GPU processes)
+sudo nvidia-smi --gpu-reset
+```
+
+**vLLM fails to start - already running**
+```bash
+# Check for existing processes
+pgrep -f 'vllm serve'
+
+# Stop existing instance
+cd inference
+./stop_vllm.sh
+
+# Verify GPU memory is clear
+nvidia-smi
 ```
 
 ### K8s Issues
