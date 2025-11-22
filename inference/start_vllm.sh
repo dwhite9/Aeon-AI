@@ -74,34 +74,62 @@ if [ "$GPU_USED" -gt 1000 ]; then
 fi
 
 # Use environment variables with fallback defaults
+MODEL="${MODEL_NAME:-Qwen/Qwen2.5-14B-Instruct}"
+QUANT="${QUANTIZATION:-bitsandbytes}"
 GPU_MEM_UTIL="${GPU_MEMORY_UTILIZATION:-0.6}"
 MAX_LEN="${MAX_MODEL_LENGTH:-8192}"
 
 echo_info "Configuration:"
+echo "  Model: $MODEL"
+echo "  Quantization: $QUANT"
 echo "  GPU Memory Utilization: $GPU_MEM_UTIL"
 echo "  Max Model Length: $MAX_LEN"
 echo ""
 
-# Start vLLM with 8-bit quantization
-echo_info "Starting vLLM server..."
-vllm serve mistralai/Mistral-7B-Instruct-v0.3 \
-  --quantization bitsandbytes \
-  --load-format bitsandbytes \
-  --dtype float16 \
-  --max-model-len "$MAX_LEN" \
-  --gpu-memory-utilization "$GPU_MEM_UTIL" \
-  --host 0.0.0.0 \
-  --port 8000 \
-  --trust-remote-code &
+# Build vLLM command based on quantization type
+VLLM_ARGS=(
+  "$MODEL"
+  --quantization "$QUANT"
+  --dtype float16
+  --max-model-len "$MAX_LEN"
+  --gpu-memory-utilization "$GPU_MEM_UTIL"
+  --host 0.0.0.0
+  --port 8000
+  --trust-remote-code
+)
 
-# Capture PID for cleanup handler
-VLLM_PID=$!
+# Add load-format for bitsandbytes quantization
+if [ "$QUANT" = "bitsandbytes" ]; then
+  VLLM_ARGS+=(--load-format bitsandbytes)
+fi
+
+# Start vLLM in tmux session with logging
+SESSION_NAME="aeon-vllm"
+LOG_FILE="$SCRIPT_DIR/vllm.log"
+
+echo_info "Starting vLLM server in tmux session..."
+
+# Check if tmux session already exists
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo_error "tmux session '$SESSION_NAME' already exists!"
+    echo_warn "Attach to it with: tmux attach -t $SESSION_NAME"
+    echo_warn "Or kill it with: tmux kill-session -t $SESSION_NAME"
+    exit 1
+fi
+
+# Create tmux session and run vLLM with logging
+tmux new-session -d -s "$SESSION_NAME" "vllm serve ${VLLM_ARGS[*]} 2>&1 | tee '$LOG_FILE'"
 
 echo ""
-echo_info "vLLM server started (PID: $VLLM_PID)"
-echo_info "Server available at: http://0.0.0.0:8000"
-echo_info "Press Ctrl+C to stop"
+echo_info "vLLM server started in tmux session: $SESSION_NAME"
+echo_info "Server will be available at: http://0.0.0.0:8000"
 echo ""
-
-# Wait for vLLM process
-wait "$VLLM_PID"
+echo_info "Monitor logs:"
+echo "  tail -f $LOG_FILE"
+echo ""
+echo_info "Attach to tmux session:"
+echo "  tmux attach -t $SESSION_NAME"
+echo ""
+echo_info "Stop vLLM:"
+echo "  tmux kill-session -t $SESSION_NAME"
+echo ""
