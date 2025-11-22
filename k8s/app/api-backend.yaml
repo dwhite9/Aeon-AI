@@ -28,7 +28,7 @@ metadata:
   namespace: default
 type: Opaque
 stringData:
-  POSTGRES_PASSWORD: "changeme"  # Change in production!
+  POSTGRES_PASSWORD: "changeme_to_secure_password"  # CHANGE THIS IN PRODUCTION!
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -57,7 +57,7 @@ class QdrantVectorStore:
             "QDRANT_HOST", "http://qdrant.vector-db:6333"
         )
         self.embedding_endpoint = embedding_endpoint or os.getenv(
-            "EMBEDDING_ENDPOINT", "http://192.168.1.100:8001"
+            "EMBEDDING_ENDPOINT", "http://localhost:8001"
         )
 
         # Initialize Qdrant client

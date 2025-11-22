@@ -167,7 +167,7 @@ services:
     environment:
       - POSTGRES_DB=aiplatform
       - POSTGRES_USER=aiuser
-      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme_to_secure_password}
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aiuser -d aiplatform"]
@@ -223,7 +223,7 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=aiplatform
       - POSTGRES_USER=aiuser
-      - POSTGRES_PASSWORD=changeme
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme_to_secure_password}
       - QDRANT_HOST=http://172.20.0.32:6333
     depends_on:
       - vllm-server

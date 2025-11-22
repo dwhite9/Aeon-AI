@@ -32,10 +32,16 @@ fi
 echo_info "=== Starting Aeon Host Services ==="
 echo ""
 
-# Set TMPDIR from environment or use default
+# Set TMPDIR from environment or use reasonable default
+# Prefer .env setting, fallback to /tmp (system default)
 export TMPDIR="${TMPDIR:-/tmp}"
 mkdir -p "$TMPDIR"
 echo_info "Using TMPDIR: $TMPDIR"
+
+# Configure Buildah/Podman to use TMPDIR for build operations
+# This prevents "no space left on device" errors during image builds
+export BUILDAH_TMPDIR="$TMPDIR"
+export BUILDAH_ISOLATION=rootless
 
 # Detect container runtime and compose tool
 if command -v podman-compose &> /dev/null; then
@@ -68,11 +74,30 @@ else
     echo ""
 fi
 
-# Start embedding service with compose
-cd ../inference
+# Navigate to inference directory (relative to repo root)
+cd "$REPO_ROOT/inference"
 
-echo_info "Starting embedding service with $RUNTIME..."
-$COMPOSE_CMD up -d embeddings
+# Build embedding service
+echo_info "Building embedding service with $RUNTIME..."
+if [ "$RUNTIME" = "Podman" ]; then
+    # Build with Podman - BUILDAH_TMPDIR already set above for build storage
+    # The Dockerfile sets ENV TMPDIR=/var/tmp for the build process
+    podman build \
+        -t aeon-embeddings:latest \
+        -f Dockerfile.embeddings \
+        .
+
+    if [ $? -ne 0 ]; then
+        echo_error "Build failed. Check the error messages above."
+        exit 1
+    fi
+
+    echo_info "Starting embedding service..."
+    $COMPOSE_CMD up -d embeddings
+else
+    # Use docker-compose build as normal
+    $COMPOSE_CMD up -d --build embeddings
+fi
 
 echo_info "Embedding service started on http://localhost:8001"
 echo ""

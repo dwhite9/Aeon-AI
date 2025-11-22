@@ -58,7 +58,7 @@ class CipherAgent:
         self,
         rag_pipeline: Any = None,
         code_executor: Any = None,
-        vllm_endpoint: str = "http://192.168.1.100:8000/v1",
+        vllm_endpoint: str = "http://localhost:8000/v1",
         searxng_endpoint: str = "http://searxng.search-engine:8080",
         model: str = "mistralai/Mistral-7B-Instruct-v0.2"
     ):

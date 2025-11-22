@@ -122,7 +122,7 @@ class RAGAnalytics:
             port = os.getenv("POSTGRES_PORT", "5432")
             db = os.getenv("POSTGRES_DB", "aiplatform")
             user = os.getenv("POSTGRES_USER", "aiuser")
-            password = os.getenv("POSTGRES_PASSWORD", "changeme")
+            password = os.getenv("POSTGRES_PASSWORD", "changeme_to_secure_password")
             db_url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
         # Create engine

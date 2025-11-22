@@ -38,7 +38,7 @@ async def cache_warming_job():
 
         # Connect to Qdrant
         qdrant_host = os.getenv("QDRANT_HOST", "http://qdrant.vector-db:6333")
-        embedding_endpoint = os.getenv("EMBEDDING_ENDPOINT", "http://192.168.1.100:8001")
+        embedding_endpoint = os.getenv("EMBEDDING_ENDPOINT", "http://localhost:8001")
 
         vector_store = QdrantVectorStore(
             collection_name="aeon_documents",
@@ -104,7 +104,7 @@ async def analytics_aggregation_job():
             port=os.getenv("POSTGRES_PORT", "5432"),
             database=os.getenv("POSTGRES_DB", "aiplatform"),
             user=os.getenv("POSTGRES_USER", "aiuser"),
-            password=os.getenv("POSTGRES_PASSWORD", "changeme")
+            password=os.getenv("POSTGRES_PASSWORD", "changeme_to_secure_password")
         )
 
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -195,7 +195,7 @@ async def data_cleanup_job():
             port=os.getenv("POSTGRES_PORT", "5432"),
             database=os.getenv("POSTGRES_DB", "aiplatform"),
             user=os.getenv("POSTGRES_USER", "aiuser"),
-            password=os.getenv("POSTGRES_PASSWORD", "changeme")
+            password=os.getenv("POSTGRES_PASSWORD", "changeme_to_secure_password")
         )
 
         cursor = conn.cursor()

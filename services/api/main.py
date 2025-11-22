@@ -41,8 +41,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-VLLM_ENDPOINT = os.getenv("VLLM_ENDPOINT", "http://192.168.1.100:8000/v1")
-EMBEDDING_ENDPOINT = os.getenv("EMBEDDING_ENDPOINT", "http://192.168.1.100:8001")
+# Note: These defaults assume services are running on localhost
+# In production, set these via environment variables (.env file)
+VLLM_ENDPOINT = os.getenv("VLLM_ENDPOINT", "http://localhost:8000/v1")
+EMBEDDING_ENDPOINT = os.getenv("EMBEDDING_ENDPOINT", "http://localhost:8001")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "http://qdrant.vector-db:6333")
 REDIS_HOST = os.getenv("REDIS_HOST", "redis-master")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
@@ -228,7 +230,7 @@ async def startup_event():
 
             postgres_url = (
                 f"postgresql://{os.getenv('POSTGRES_USER', 'aiuser')}:"
-                f"{os.getenv('POSTGRES_PASSWORD', 'changeme')}@"
+                f"{os.getenv('POSTGRES_PASSWORD', 'changeme_to_secure_password')}@"
                 f"{os.getenv('POSTGRES_HOST', 'postgres-postgresql')}:"
                 f"{os.getenv('POSTGRES_PORT', '5432')}/"
                 f"{os.getenv('POSTGRES_DB', 'aiplatform')}"

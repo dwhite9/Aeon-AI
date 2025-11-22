@@ -14,6 +14,13 @@ RUN apt-get update && apt-get install -y \
 # Add UV to PATH
 ENV PATH="/root/.local/bin:$PATH"
 
+# Set temp directories to use /var/tmp which is usually larger
+# UV and Python will use these for extraction
+ENV TMPDIR=/var/tmp
+ENV TEMP=/var/tmp
+ENV TMP=/var/tmp
+ENV UV_CACHE_DIR=/var/tmp/uv-cache
+
 # Install Python packages using UV
 COPY pyproject.toml .
 COPY requirements.txt .
