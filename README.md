@@ -51,41 +51,6 @@ View detailed architecture diagrams in the [diagrams/](diagrams/) directory:
 - GPU: NVIDIA GPU with 8GB+ VRAM
 - Storage: 100GB SSD (thin provisioned)
 
-## Project Status
-
-✅ **Phase 1: Foundation - COMPLETE**
-- ✅ Repository structure and directory layout
-- ✅ Host services (vLLM and embedding server)
-- ✅ FastAPI backend with chat endpoints and session management
-- ✅ React frontend with TypeScript and Vite
-- ✅ Kubernetes manifests for infrastructure and application
-- ✅ Deployment scripts and automation
-
-✅ **Phase 2: RAG Pipeline - COMPLETE**
-- ✅ Document processing and semantic chunking
-- ✅ Qdrant integration for vector storage
-- ✅ Retrieval with two-tier caching (Redis + Qdrant)
-- ✅ PostgreSQL analytics integration
-
-✅ **Phase 3: Advanced Agent System - COMPLETE**
-- ✅ LangGraph multi-tool agent implementation (Cipher)
-- ✅ Web search integration (SearXNG)
-- ✅ Tool orchestration and intelligent routing
-- ✅ Agent API endpoints and status monitoring
-
-✅ **Phase 4: Code Execution - COMPLETE**
-- ✅ Kubernetes Job-based Python code execution
-- ✅ Security sandboxing and resource limits
-- ✅ Code validation and safety checks
-- ✅ RBAC permissions and isolation
-
-✅ **Phase 5: Self-Tuning - COMPLETE**
-- ✅ Query analytics and performance tracking
-- ✅ Automated optimization recommendations
-- ✅ Nightly optimization CronJobs
-- ✅ Embedding fine-tuning pipeline
-- ✅ Analytics dashboard API
-
 ## Quick Start
 
 ### Prerequisites
