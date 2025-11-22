@@ -78,12 +78,18 @@ MODEL="${MODEL_NAME:-Qwen/Qwen2.5-14B-Instruct}"
 QUANT="${QUANTIZATION:-bitsandbytes}"
 GPU_MEM_UTIL="${GPU_MEMORY_UTILIZATION:-0.6}"
 MAX_LEN="${MAX_MODEL_LENGTH:-8192}"
+HF_TOKEN="${HF_TOKEN:-}"
 
 echo_info "Configuration:"
 echo "  Model: $MODEL"
 echo "  Quantization: $QUANT"
 echo "  GPU Memory Utilization: $GPU_MEM_UTIL"
 echo "  Max Model Length: $MAX_LEN"
+if [ -n "$HF_TOKEN" ]; then
+  echo "  HuggingFace Token: ****${HF_TOKEN: -4}"
+else
+  echo "  HuggingFace Token: Not set"
+fi
 echo ""
 
 # Build vLLM command based on quantization type
@@ -118,7 +124,12 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 
 # Create tmux session and run vLLM with logging
-tmux new-session -d -s "$SESSION_NAME" "vllm serve ${VLLM_ARGS[*]} 2>&1 | tee '$LOG_FILE'"
+# Export HF_TOKEN if set (for private/gated HuggingFace models)
+if [ -n "$HF_TOKEN" ]; then
+  tmux new-session -d -s "$SESSION_NAME" "export HUGGING_FACE_HUB_TOKEN='$HF_TOKEN' && vllm serve ${VLLM_ARGS[*]} 2>&1 | tee '$LOG_FILE'"
+else
+  tmux new-session -d -s "$SESSION_NAME" "vllm serve ${VLLM_ARGS[*]} 2>&1 | tee '$LOG_FILE'"
+fi
 
 echo ""
 echo_info "vLLM server started in tmux session: $SESSION_NAME"
