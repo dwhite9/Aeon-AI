@@ -1,0 +1,85 @@
+# Tool-Aware Fine-tuning Configuration
+# Optimized for RTX 4070 Ti (12GB VRAM)
+
+# Model Configuration
+model:
+  name: "mistralai/Mistral-7B-Instruct-v0.2"
+  max_seq_length: 2048  # Shorter than model max to save memory
+
+# Quantization (QLoRA)
+quantization:
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: "nf4"  # Normal Float 4-bit
+  bnb_4bit_use_double_quant: true  # Nested quantization
+
+# LoRA Configuration
+lora:
+  r: 8  # Rank (can increase to 16 if memory allows)
+  alpha: 16  # Scaling factor (typically 2*r)
+  dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+# Training Hyperparameters
+training:
+  num_epochs: 3
+  per_device_train_batch_size: 1  # Small for 12GB
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8  # Effective batch = 8
+  learning_rate: 2.0e-4
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  max_grad_norm: 1.0
+
+# Memory Optimization
+optimization:
+  gradient_checkpointing: true
+  optim: "paged_adamw_8bit"  # Paged optimizer saves memory
+  bf16: true  # Use bfloat16
+  fp16: false
+
+# Logging and Checkpointing
+logging:
+  logging_steps: 10
+  eval_steps: 50
+  save_steps: 100
+  save_total_limit: 2  # Keep only 2 checkpoints
+  evaluation_strategy: "steps"
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+
+# Weights & Biases (optional)
+wandb:
+  enabled: false  # Set to true to enable
+  project: "mistral-tool-aware"
+  run_name: null  # Auto-generated if null
+
+# Data Paths
+data:
+  train_path: "./data/train.json"
+  val_path: "./data/val.json"
+  test_path: "./data/test.json"
+
+# Output
+output:
+  output_dir: "./output"
+  adapter_dir: "./output/lora_adapters"
+  final_model_dir: "./output/final_model"
+
+# Database (for query log extraction)
+database:
+  host: "localhost"
+  port: 5432
+  database: "cipher_analytics"
+  user: "cipher"
+  # Password from environment: POSTGRES_PASSWORD
+
+# HuggingFace Token
+# Set via environment: HF_TOKEN
